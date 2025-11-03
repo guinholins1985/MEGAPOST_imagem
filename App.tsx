@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { GeneratedAsset } from './types';
+import { GeneratedAsset, AssetCategory } from './types';
 import { generateMarketingAssets } from './services/geminiService';
 import ImageUploader from './components/ImageUploader';
 import ImageGrid from './components/ImageGrid';
@@ -33,6 +33,7 @@ const Logo: React.FC = () => (
 const App: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<{ data: string; mimeType: string } | null>(null);
   const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
+  const [failedAssetsInfo, setFailedAssetsInfo] = useState<AssetCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,12 +53,16 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setGeneratedAssets([]);
+    setFailedAssetsInfo([]);
     setOriginalImage(image);
 
     try {
       // FIX: Removed explicit API_KEY check to align with guidelines, which state the key is assumed to be configured externally.
-      const assets = await generateMarketingAssets(image.data, image.mimeType);
-      setGeneratedAssets(assets);
+      const { successfulAssets, failedAssetTitles } = await generateMarketingAssets(image.data, image.mimeType);
+      setGeneratedAssets(successfulAssets);
+      if (failedAssetTitles.length > 0) {
+        setFailedAssetsInfo(failedAssetTitles);
+      }
     } catch (err) {
       console.error(err);
       const errorMessage = err instanceof Error ? err.message : "Ocorreu um erro desconhecido durante a geração.";
@@ -116,12 +121,21 @@ const App: React.FC = () => {
             )}
             
             {!isLoading && generatedAssets.length > 0 && (
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center w-full">
+                  {failedAssetsInfo.length > 0 && (
+                    <div className="w-full max-w-7xl mx-auto mb-8 p-4 bg-yellow-100 border border-yellow-300 rounded-lg text-center animate-fadeIn">
+                      <h3 className="text-lg font-semibold text-yellow-800">Geração Parcialmente Concluída</h3>
+                      <p className="mt-2 text-yellow-700">
+                        Alguns materiais não puderam ser gerados. Categorias com falha: {failedAssetsInfo.join(', ')}.
+                      </p>
+                    </div>
+                  )}
                   <ImageGrid assets={generatedAssets} />
                   <button
                       onClick={() => {
                         setGeneratedAssets([]);
                         setOriginalImage(null);
+                        setFailedAssetsInfo([]);
                       }}
                       className="mt-10 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg transition-transform transform hover:scale-105"
                   >

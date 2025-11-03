@@ -100,3 +100,8 @@ export interface GeneratedAsset {
   type: 'image' | 'video';
   prompt: string;
 }
+
+export interface GenerationResult {
+  successfulAssets: GeneratedAsset[];
+  failedAssetTitles: AssetCategory[];
+}

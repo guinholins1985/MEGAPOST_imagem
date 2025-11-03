@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GeneratedAsset, AssetCategory } from '../types';
+import { GeneratedAsset, AssetCategory, GenerationResult } from '../types';
 
 const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -7,7 +7,7 @@ const toDataUrl = (base64: string, mimeType: string) => `data:${mimeType};base64
 
 const getRelevantAssetCategories = async (productDescription: string): Promise<AssetCategory[]> => {
   const ai = getAi();
-  const allCategories = Object.keys(AssetCategory) as AssetCategory[];
+  const allCategories = Object.values(AssetCategory);
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -16,7 +16,7 @@ const getRelevantAssetCategories = async (productDescription: string): Promise<A
 Categorias disponíveis:
 ${allCategories.join('\n')}
 
-Responda com um array JSON contendo apenas as chaves das categorias relevantes.`,
+Responda com um array JSON contendo apenas os valores das categorias relevantes.`,
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
@@ -106,7 +106,7 @@ const generateVideoAsset = async (productDescription: string, category: AssetCat
 const generateImageAsset = async (productDescription: string, category: AssetCategory): Promise<GeneratedAsset> => {
   const ai = getAi();
   let prompt = '';
-  let aspectRatio: '1:1' | '9:16' | '16:9' | '4:3' = '1:1';
+  let aspectRatio: '1:1' | '9:16' | '16:9' | '4:3' | '3:4' = '1:1';
 
   switch (category) {
     case AssetCategory.PRODUCT_PHOTO_4K_WHITE_BG:
@@ -201,7 +201,7 @@ const generateImageAsset = async (productDescription: string, category: AssetCat
   const response = await ai.models.generateImages({
     model: 'imagen-4.0-generate-001',
     prompt,
-    config: { numberOfImages: 1, aspectRatio },
+    config: { numberOfImages: 1, aspectRatio, outputMimeType: 'image/png' },
   });
 
   const generatedImage = response.generatedImages[0];
@@ -217,7 +217,7 @@ const generateImageAsset = async (productDescription: string, category: AssetCat
   };
 };
 
-export const generateMarketingAssets = async (base64Image: string, mimeType: string): Promise<GeneratedAsset[]> => {
+export const generateMarketingAssets = async (base64Image: string, mimeType: string): Promise<GenerationResult> => {
   const ai = getAi();
 
   const analysisResponse = await ai.models.generateContent({
@@ -249,25 +249,28 @@ export const generateMarketingAssets = async (base64Image: string, mimeType: str
   
   const results = await Promise.allSettled(generationPromises);
   
-  const successfulResults = results
-      .filter(result => result.status === 'fulfilled')
-      .map(result => (result as PromiseFulfilledResult<GeneratedAsset>).value);
-  
+  const successfulAssets: GeneratedAsset[] = [];
+  const failedAssetTitles: AssetCategory[] = [];
+
   results.forEach((result, index) => {
-      if(result.status === 'rejected') {
-          console.error(`Falha ao gerar o material para a categoria ${relevantCategories[index]}:`, result.reason);
-      }
+    if (result.status === 'fulfilled') {
+      successfulAssets.push(result.value);
+    } else {
+      const failedCategory = relevantCategories[index];
+      failedAssetTitles.push(failedCategory);
+      console.error(`Falha ao gerar o material para a categoria ${failedCategory}:`, result.reason);
+    }
   });
 
-  if (successfulResults.length === 0) {
-      throw new Error("Todos os processos de geração de materiais falharam. Verifique os prompts, sua chave de API e a disponibilidade do serviço.");
+  if (successfulAssets.length === 0) {
+      throw new Error("Todos os processos de geração de materiais falharam. Verifique sua chave de API e a disponibilidade do serviço.");
   }
 
-  successfulResults.sort((a, b) => {
+  successfulAssets.sort((a, b) => {
       if (a.type === 'video' && b.type !== 'video') return -1;
       if (b.type === 'video' && a.type !== 'video') return 1;
       return 0;
   });
 
-  return successfulResults;
+  return { successfulAssets, failedAssetTitles };
 };
