@@ -1,4 +1,4 @@
-import React, { useState, useCallback, ChangeEvent } from 'react';
+import React, { useState, useCallback, ChangeEvent, useEffect } from 'react';
 import { UploadIcon, LinkIcon } from './icons';
 
 interface ImageUploaderProps {
@@ -10,31 +10,36 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onGenerate, disabled }) =
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const processFile = useCallback((selectedFile: File) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(selectedFile.type)) {
+      setError('Tipo de arquivo inválido. Por favor, envie um arquivo JPG, PNG ou WEBP.');
+      setFile(null);
+      setPreview(null);
+      return;
+    }
+    if (selectedFile.size > 5 * 1024 * 1024) { // 5MB limit
+      setError('Arquivo muito grande. Por favor, envie uma imagem menor que 5MB.');
+      setFile(null);
+      setPreview(null);
+      return;
+    }
+    setError(null);
+    setFile(selectedFile);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result as string);
+    };
+    reader.readAsDataURL(selectedFile);
+  }, []);
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(selectedFile.type)) {
-        setError('Tipo de arquivo inválido. Por favor, envie um arquivo JPG, PNG ou WEBP.');
-        setFile(null);
-        setPreview(null);
-        return;
-      }
-      if (selectedFile.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('Arquivo muito grande. Por favor, envie uma imagem menor que 5MB.');
-        setFile(null);
-        setPreview(null);
-        return;
-      }
-      setError(null);
-      setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(selectedFile);
+      processFile(selectedFile);
     }
-  }, []);
+  }, [processFile]);
 
   const handleSubmit = useCallback(() => {
     if (!file || !preview) return;
@@ -42,11 +47,45 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onGenerate, disabled }) =
     onGenerate({ data: base64String, mimeType: file.type });
   }, [file, preview, onGenerate]);
 
+  useEffect(() => {
+    if (preview && file && !disabled) {
+      handleSubmit();
+    }
+  }, [preview, file, disabled, handleSubmit]);
+  
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+  }, []);
+  
+  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const droppedFile = event.dataTransfer.files?.[0];
+    if (droppedFile) {
+      processFile(droppedFile);
+    }
+  }, [processFile]);
+
+  const dropzoneClasses = `border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+    isDragging 
+    ? 'border-indigo-500 bg-indigo-50' 
+    : 'border-gray-400 bg-slate-50/50 hover:border-indigo-500 hover:bg-slate-50'
+  }`;
+
   return (
     <div className="w-full max-w-3xl mx-auto bg-white/60 border border-gray-200/80 rounded-xl p-8 shadow-2xl backdrop-blur-lg">
       <div
-        className="border-2 border-dashed border-gray-400 rounded-lg p-8 text-center bg-slate-50/50 cursor-pointer hover:border-indigo-500 hover:bg-slate-50 transition-colors"
+        className={dropzoneClasses}
         onClick={() => document.getElementById('file-upload')?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         <input id="file-upload" type="file" className="hidden" onChange={handleFileChange} accept="image/png, image/jpeg, image/webp" />
         {preview ? (
@@ -81,16 +120,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onGenerate, disabled }) =
                   className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
           </div>
-      </div>
-
-      <div className="mt-8 text-center">
-        <button
-          onClick={handleSubmit}
-          disabled={!file || disabled || !!error}
-          className="w-full sm:w-auto px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg shadow-lg transition-all transform hover:bg-indigo-700 hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
-        >
-          {disabled ? 'Gerando...' : 'Gerar Materiais de Marketing'}
-        </button>
       </div>
     </div>
   );

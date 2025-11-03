@@ -1,275 +1,215 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { GeneratedAsset, AssetCategory, GenerationResult } from '../types';
 
-const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { GoogleGenAI, Modality } from "@google/genai";
+import { AssetCategory, GenerationResult, GeneratedAsset } from '../types';
 
-const toDataUrl = (base64: string, mimeType: string) => `data:${mimeType};base64,${base64}`;
+// The API key MUST be obtained exclusively from the environment variable `process.env.API_KEY`.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
-const getRelevantAssetCategories = async (productDescription: string): Promise<AssetCategory[]> => {
-  const ai = getAi();
-  const allCategories = Object.values(AssetCategory);
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: `Com base na descrição do produto: "${productDescription}", determine quais das seguintes categorias de materiais de marketing são as mais relevantes. Retorne no máximo 12 categorias. Se o produto for físico, inclua mockups e fotos de produto. Se for digital (app/software), inclua mockups de dispositivo e ícones de app.
-
-Categorias disponíveis:
-${allCategories.join('\n')}
-
-Responda com um array JSON contendo apenas os valores das categorias relevantes.`,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.STRING,
-          enum: allCategories,
-        },
-      },
-    },
-  });
-
-  try {
-    const jsonText = response.text.trim();
-    if (jsonText.startsWith('[') && jsonText.endsWith(']')) {
-      const parsed = JSON.parse(jsonText);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(item => allCategories.includes(item as AssetCategory));
-      }
-    }
-    return [];
-  } catch (e) {
-    console.error("Falha ao analisar o JSON de categorias relevantes:", e);
-    return [
-      AssetCategory.PRODUCT_PHOTO_4K_WHITE_BG,
-      AssetCategory.MOCKUP_LIFESTYLE,
-      AssetCategory.SOCIAL_INSTAGRAM_POST,
-      AssetCategory.AD_YOUTUBE_THUMBNAIL
-    ];
-  }
-};
-
-
-const generateVideoAsset = async (productDescription: string, category: AssetCategory): Promise<GeneratedAsset> => {
-    const ai = getAi();
-    let prompt = '';
-    let aspectRatio: '16:9' | '9:16' = '16:9';
-
-    switch (category) {
-        case AssetCategory.PRODUCT_VIDEO_360:
-            prompt = `Um vídeo de 360 graus em loop do produto, ${productDescription}, girando lentamente sobre um fundo de estúdio neutro e limpo. Iluminação profissional, qualidade 4K.`;
-            aspectRatio = '16:9';
-            break;
-        case AssetCategory.SOCIAL_PROMO_GIF:
-            prompt = `Um GIF promocional de 5 segundos, energético e moderno, para ${productDescription}. Loop perfeito. Sem texto, com espaço para sobreposição de gráficos. Cores vibrantes.`;
-            aspectRatio = '9:16';
-            break;
-        default:
-             throw new Error(`Categoria de vídeo não suportada: ${category}`);
-    }
-  
-    let operation = await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
-        prompt,
-        config: {
-          numberOfVideos: 1,
-          resolution: '720p',
-          aspectRatio: aspectRatio,
-        },
-    });
-
-    while (!operation.done) {
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        operation = await ai.operations.getVideosOperation({ operation });
-    }
-
-    const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!videoUri) {
-        throw new Error(`A geração de vídeo falhou para a categoria: ${category}`);
-    }
-
-    const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
-    if (!videoResponse.ok) {
-        throw new Error(`Falha ao buscar o arquivo de vídeo: ${videoResponse.statusText}`);
-    }
-    const videoBlob = await videoResponse.blob();
-    const videoUrl = URL.createObjectURL(videoBlob);
-
-    return {
-        title: category,
-        url: videoUrl,
-        type: 'video',
-        prompt,
-    };
-};
-
-const generateImageAsset = async (productDescription: string, category: AssetCategory): Promise<GeneratedAsset> => {
-  const ai = getAi();
-  let prompt = '';
-  let aspectRatio: '1:1' | '9:16' | '16:9' | '4:3' | '3:4' = '1:1';
-
+const getPromptForCategory = (category: AssetCategory): string => {
   switch (category) {
+    // Apresentação do Produto
     case AssetCategory.PRODUCT_PHOTO_4K_WHITE_BG:
-      prompt = `Fotografia de produto profissional 4K de ${productDescription}, iluminação de estúdio, em um fundo branco puro. Hiper-realista, sombras suaves.`;
-      break;
+      return 'Crie uma foto 4K de alta qualidade deste produto sobre um fundo branco puro e limpo, com iluminação de estúdio profissional.';
     case AssetCategory.PRODUCT_PHOTO_4K_TRANSPARENT_BG:
-      prompt = `Fotografia de produto profissional 4K de ${productDescription}, iluminação de estúdio, em um fundo transparente (PNG). Hiper-realista.`;
-      break;
+      return 'Gere uma imagem 4K de alta qualidade deste produto com um fundo transparente (PNG).';
+    case AssetCategory.PRODUCT_VIDEO_360:
+      return 'Crie um vídeo de 5 segundos mostrando uma rotação suave de 360 graus deste produto sobre um fundo neutro.';
     case AssetCategory.PRODUCT_PHOTO_ZOOM:
-      prompt = `Fotografia macro de um detalhe importante de ${productDescription}. Foco nítido na textura e material, fundo desfocado. Qualidade 4K.`;
-      break;
+      return 'Crie uma foto macro de alta resolução destacando um detalhe importante ou a textura deste produto.';
     case AssetCategory.PRODUCT_PHOTO_IN_USE:
-       prompt = `Fotografia de ${productDescription} sendo utilizado em um contexto real e autêntico. Ação congelada, iluminação natural, foco no produto.`;
-       break;
+      return 'Gere uma foto realista mostrando este produto sendo usado em um cenário cotidiano apropriado.';
+
+    // Mockups e Contextualização
     case AssetCategory.MOCKUP_WITH_MODEL:
-      prompt = `Uma fotografia de estilo de vida realista de uma pessoa diversa e feliz usando ${productDescription} em um ambiente moderno. O foco está no produto.`;
-      break;
+      return 'Crie um mockup com um modelo humano (rosto não visível ou genérico) interagindo ou usando este produto de forma natural.';
     case AssetCategory.MOCKUP_LIFESTYLE:
-      prompt = `Cena de lifestyle mostrando ${productDescription} em um ambiente cotidiano bem arrumado, como uma mesa de escritório ou uma bancada de cozinha. Sem pessoas. Iluminação suave e natural.`;
-      break;
+      return 'Gere um mockup de lifestyle, mostrando este produto em um ambiente bem decorado e aspiracional que combine com a marca.';
     case AssetCategory.MOCKUP_PACKAGING:
-      prompt = `Mockup 3D da embalagem de ${productDescription} ao lado do produto. Design limpo, fundo neutro, iluminação de estúdio.`;
-      break;
+      return 'Se este produto tiver uma embalagem, crie um mockup 3D da embalagem do produto. Se não, imagine e crie uma embalagem de luxo para ele.';
     case AssetCategory.MOCKUP_DIGITAL_DEVICE:
-      prompt = `Mockup de ${productDescription} (se for um app ou site) sendo exibido na tela de um smartphone ou laptop moderno. O dispositivo está em uma mesa de trabalho estilosa.`;
-      break;
+      return 'Crie um mockup mostrando o site ou o app relacionado a este produto na tela de um dispositivo digital moderno (laptop ou smartphone).';
+
+    // Redes Sociais e Engajamento
     case AssetCategory.SOCIAL_INSTAGRAM_POST:
-      prompt = `Um template de post para Instagram (feed) para ${productDescription}. Design minimalista e elegante, com amplo espaço negativo para adicionar texto. Cores da marca suaves.`;
-      aspectRatio = '1:1';
-      break;
+      return 'Crie um post para o feed do Instagram (formato 1:1) vibrante e chamativo com este produto como estrela principal.';
     case AssetCategory.SOCIAL_INSTAGRAM_STORY:
-      prompt = `Um fundo de story para Instagram, visualmente atraente e relacionado a ${productDescription}. Design vertical (9:16) com espaço livre na parte superior e inferior para texto e stickers.`;
-      aspectRatio = '9:16';
-      break;
+      return 'Gere um Story para Instagram (formato 9:16) criativo e vertical, com espaço para adicionar texto ou stickers, usando este produto.';
     case AssetCategory.SOCIAL_REELS_THUMBNAIL:
-        prompt = `Uma thumbnail vibrante e chamativa para um vídeo de Reels/TikTok sobre ${productDescription}. Cores de alto contraste, foco centralizado no produto, estilo energético.`;
-        aspectRatio = '9:16';
-        break;
+       return 'Crie uma imagem de capa (thumbnail) atraente para um vídeo do Reels ou TikTok (formato 9:16) sobre este produto.';
     case AssetCategory.SOCIAL_FACEBOOK_POST:
-        prompt = `Uma imagem para post no Facebook sobre ${productDescription}. Formato paisagem, visual limpo e profissional, adequado para um link de postagem.`;
-        aspectRatio = '4:3';
-        break;
+      return 'Gere uma imagem para um post de Facebook (formato paisagem 1.91:1) que incentive o engajamento, mostrando este produto.';
+    case AssetCategory.SOCIAL_PROMO_GIF:
+      return 'Crie um vídeo curto (3-5 segundos) em loop, como um GIF, mostrando uma animação simples e divertida com este produto (ex: stop-motion, brilho sutil).';
+
+    // Marketing e Publicidade
     case AssetCategory.AD_GOOGLE_BANNER:
-        prompt = `Banner para Google Ads (formato retangular) promovendo ${productDescription}. Design limpo, focado no produto, com uma chamada para ação visual clara, sem texto.`;
-        aspectRatio = '16:9';
-        break;
+      return 'Crie um banner retangular (300x250 pixels) para Google Ads, com uma chamada para ação clara, usando este produto.';
     case AssetCategory.AD_FACEBOOK_BANNER:
-        prompt = `Banner para anúncio no Facebook/Instagram promovendo ${productDescription}. Imagem quadrada, vibrante e que prende a atenção. Foco no apelo visual do produto.`;
-        aspectRatio = '1:1';
-        break;
+      return 'Gere um banner de anúncio para Facebook (1200x628 pixels) visualmente impactante, focado na principal vantagem deste produto.';
     case AssetCategory.AD_YOUTUBE_THUMBNAIL:
-      prompt = `Uma thumbnail de YouTube atraente sobre ${productDescription}. Cores de alto contraste para maximizar cliques, com um close-up dramático do produto e espaço para texto em negrito.`;
-      aspectRatio = '16:9';
-      break;
+      return 'Crie uma thumbnail para um vídeo do YouTube (16:9) com cores fortes, texto mínimo e o produto em destaque para maximizar cliques.';
+
+    // Efeitos e Edições Avançadas
     case AssetCategory.EFFECT_3D_SHADOW:
-      prompt = `Uma foto de estúdio dramática de ${productDescription} com uma sombra 3D longa e suave sobre um fundo de cor sólida. Minimalista e artístico.`;
-      break;
+      return 'Gere uma imagem deste produto com uma sombra 3D realista projetada em uma superfície colorida que complemente o produto.';
     case AssetCategory.EFFECT_FLAT_DESIGN:
-        prompt = `Uma ilustração em estilo flat design de ${productDescription}. Cores chapadas, formas geométricas simples, minimalista e moderno.`;
-        break;
+      return 'Crie uma ilustração estilizada em flat design deste produto, usando uma paleta de cores limitada e formas geométricas.';
     case AssetCategory.EFFECT_VINTAGE:
-        prompt = `Uma fotografia de ${productDescription} com um filtro e estilo vintage/retrô. Cores desbotadas, grão sutil, como uma foto antiga.`;
-        break;
+      return 'Aplique um filtro de estilo vintage/retrô nesta imagem de produto, com granulação, cores desbotadas e um toque nostálgico.';
+      
+    // Plataformas e Marketplaces
     case AssetCategory.ECOMMERCE_MARKETPLACE_IMAGE:
-      prompt = `Fotografia de produto de alta qualidade para marketplaces como Amazon ou Mercado Livre. Fundo perfeitamente branco, iluminação clara e uniforme, mostrando ${productDescription} de frente.`;
-      break;
+        return 'Gere uma imagem otimizada para marketplaces como Amazon ou Mercado Livre: fundo branco puro, sem adereços, produto bem iluminado e preenchendo o quadro.';
     case AssetCategory.ECOMMERCE_WEBSITE_HERO:
-        prompt = `Uma imagem de herói (hero image) para a página principal de um e-commerce, apresentando ${productDescription}. Composição cinematográfica, alta qualidade, com espaço para texto e botões de CTA.`;
-        aspectRatio = '16:9';
-        break;
+        return 'Crie uma imagem "hero" de alta qualidade para a página inicial de um site, mostrando o produto em um contexto inspirador e de alta qualidade.';
+
+    // Eventos e Lançamentos
     case AssetCategory.EVENT_INVITE:
-        prompt = `Um design de fundo elegante para um convite digital de um evento de lançamento de ${productDescription}. Abstrato e sofisticado, com espaço para detalhes do evento.`;
-        aspectRatio = '4:3';
-        break;
+        return 'Crie uma imagem para um convite digital para um evento de lançamento online deste produto.';
+
+    // Aplicativos e Conteúdo Digital
     case AssetCategory.APP_ICON:
-        prompt = `Um ícone de aplicativo (app icon) para ${productDescription}. Estilo moderno, simples e reconhecível. Design vetorial, fundo sólido, formato quadrado.`;
-        break;
+        return 'Crie um ícone de aplicativo (1024x1024) moderno e minimalista baseado neste produto.';
     case AssetCategory.APP_SPLASH_SCREEN:
-        prompt = `Uma splash screen (tela de abertura) para um aplicativo sobre ${productDescription}. Design vertical, minimalista, com o logo ou uma representação estilizada do produto no centro.`;
-        aspectRatio = '9:16';
-        break;
+        return 'Crie uma tela de splash (splash screen) para um aplicativo, apresentando este produto de forma elegante e limpa.';
+
+    // Impressão e Materiais Físicos
     case AssetCategory.PRINT_TSHIRT:
-        prompt = `Um design gráfico estiloso para uma camiseta, inspirado em ${productDescription}. Arte vetorial, adequada para serigrafia, em um fundo transparente.`;
-        break;
+        return 'Crie uma arte gráfica estilizada deste produto para ser estampada em uma camiseta.';
     case AssetCategory.PRINT_STICKER:
-        prompt = `Um adesivo (sticker) divertido e colecionável de ${productDescription}. Estilo de ilustração, contorno branco grosso, perfeito para impressão e recorte.`;
-        break;
+        return 'Crie o design de um adesivo (sticker) circular ou de formato personalizado baseado neste produto, pronto para impressão.';
     default:
-      throw new Error(`Categoria de imagem não suportada: ${category}`);
+      return `Uma imagem de marketing para ${category} com este produto.`;
   }
-
-  const response = await ai.models.generateImages({
-    model: 'imagen-4.0-generate-001',
-    prompt,
-    config: { numberOfImages: 1, aspectRatio, outputMimeType: 'image/png' },
-  });
-
-  const generatedImage = response.generatedImages[0];
-  if (!generatedImage || !generatedImage.image.imageBytes) {
-      throw new Error(`A geração de imagem falhou para a categoria: ${category}`);
-  }
-
-  return {
-    title: category,
-    url: toDataUrl(generatedImage.image.imageBytes, "image/png"),
-    type: 'image',
-    prompt,
-  };
 };
 
-export const generateMarketingAssets = async (base64Image: string, mimeType: string): Promise<GenerationResult> => {
-  const ai = getAi();
 
-  const analysisResponse = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: {
-      parts: [
-        { text: "Analise esta imagem de produto e descreva o produto em uma frase curta e descritiva, adequada para um prompt de geração de imagem. Por exemplo: 'Um elegante fone de ouvido gamer vermelho e preto'." },
-        { inlineData: { mimeType, data: base64Image } }
-      ]
+const isVideoCategory = (category: AssetCategory): boolean => {
+  return [AssetCategory.PRODUCT_VIDEO_360, AssetCategory.SOCIAL_PROMO_GIF].includes(category);
+};
+
+const getAspectRatioForCategory = (category: AssetCategory): "1:1" | "9:16" | "16:9" => {
+    switch (category) {
+        case AssetCategory.SOCIAL_INSTAGRAM_STORY:
+        case AssetCategory.SOCIAL_REELS_THUMBNAIL:
+             return "9:16";
+        case AssetCategory.AD_YOUTUBE_THUMBNAIL:
+        case AssetCategory.ECOMMERCE_WEBSITE_HERO:
+        case AssetCategory.SOCIAL_FACEBOOK_POST:
+            return "16:9";
+        default:
+            return "1:1"; // Default for most others
     }
-  });
-  const productDescription = analysisResponse.text.trim();
+}
 
-  const relevantCategories = await getRelevantAssetCategories(productDescription);
 
-  if (relevantCategories.length === 0) {
-      throw new Error("Não foi possível determinar categorias de materiais relevantes para o produto. Tente uma imagem diferente.");
-  }
-
-  const generationPromises: Promise<GeneratedAsset>[] = [];
-
-  for (const category of relevantCategories) {
-      if (category === AssetCategory.PRODUCT_VIDEO_360 || category === AssetCategory.SOCIAL_PROMO_GIF) {
-          generationPromises.push(generateVideoAsset(productDescription, category));
-      } else {
-          generationPromises.push(generateImageAsset(productDescription, category));
-      }
-  }
-  
-  const results = await Promise.allSettled(generationPromises);
-  
+export const generateMarketingAssets = async (
+  image: { data: string; mimeType: string }
+): Promise<GenerationResult> => {
   const successfulAssets: GeneratedAsset[] = [];
   const failedAssetTitles: AssetCategory[] = [];
 
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      successfulAssets.push(result.value);
-    } else {
-      const failedCategory = relevantCategories[index];
-      failedAssetTitles.push(failedCategory);
-      console.error(`Falha ao gerar o material para a categoria ${failedCategory}:`, result.reason);
+  const allCategories = Object.values(AssetCategory);
+
+  const generationPromises = allCategories.map(async (category) => {
+    const prompt = getPromptForCategory(category);
+    
+    try {
+      if (isVideoCategory(category)) {
+        // Video Generation
+        let operation = await ai.models.generateVideos({
+          model: 'veo-3.1-fast-generate-preview',
+          prompt: prompt,
+          image: {
+            imageBytes: image.data,
+            mimeType: image.mimeType,
+          },
+          config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: getAspectRatioForCategory(category),
+          }
+        });
+        
+        while (!operation.done) {
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          operation = await ai.operations.getVideosOperation({operation: operation});
+        }
+        
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) {
+          throw new Error('Video generation failed to produce a URI.');
+        }
+
+        // The response.body contains the MP4 bytes. You must append an API key when fetching from the download link.
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+        }
+        const videoBlob = await videoResponse.blob();
+        const videoUrl = URL.createObjectURL(videoBlob);
+
+        return {
+          title: category,
+          url: videoUrl,
+          type: 'video',
+          prompt: prompt,
+        } as GeneratedAsset;
+
+      } else {
+        // Image Generation
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+              parts: [
+                {
+                  inlineData: {
+                    data: image.data,
+                    mimeType: image.mimeType,
+                  },
+                },
+                {
+                  text: prompt,
+                },
+              ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+              const base64ImageBytes: string = part.inlineData.data;
+              const imageUrl = `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
+              return {
+                  title: category,
+                  url: imageUrl,
+                  type: 'image',
+                  prompt: prompt,
+              } as GeneratedAsset;
+            }
+          }
+        throw new Error('No image data returned from API.');
+      }
+    } catch (error) {
+      console.error(`Failed to generate asset for category: ${category}`, error);
+      // Return category title on failure, to be caught by Promise.allSettled
+      throw new Error(category);
     }
   });
 
-  if (successfulAssets.length === 0) {
-      throw new Error("Todos os processos de geração de materiais falharam. Verifique sua chave de API e a disponibilidade do serviço.");
-  }
+  const results = await Promise.allSettled(generationPromises);
 
-  successfulAssets.sort((a, b) => {
-      if (a.type === 'video' && b.type !== 'video') return -1;
-      if (b.type === 'video' && a.type !== 'video') return 1;
-      return 0;
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value) {
+        successfulAssets.push(result.value as GeneratedAsset);
+    } else {
+      failedAssetTitles.push(allCategories[index]);
+      if (result.status === 'rejected') {
+        console.error(`Promise rejected for ${allCategories[index]}:`, result.reason);
+      }
+    }
   });
 
   return { successfulAssets, failedAssetTitles };
