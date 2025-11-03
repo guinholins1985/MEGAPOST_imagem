@@ -8,12 +8,13 @@ import { SparklesIcon } from './components/icons';
 
 // Add aistudio to window interface for Veo API key selection
 // FIX: The original inline type for `aistudio` caused a declaration conflict. Defining a named `AIStudio` interface and using it resolves the issue.
-interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
+// FIX: Moved the AIStudio interface inside the `declare global` block to resolve a module scope conflict.
 declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
   interface Window {
     aistudio?: AIStudio;
   }

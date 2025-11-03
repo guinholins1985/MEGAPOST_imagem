@@ -3,12 +3,15 @@ import { SparklesIcon } from './icons';
 
 const LOADING_MESSAGES = [
   "Analisando as características do produto...",
-  "Gerando conceitos criativos...",
+  "Determinando os melhores materiais de marketing para gerar...",
+  "Gerando conceitos criativos com IA...",
   "Criando fotos de produtos em alta resolução...",
   "Construindo mockups de estilo de vida realistas...",
-  "Desenhando banners chamativos...",
-  "Renderizando vídeo promocional (isso pode levar um minuto)...",
-  "Otimizando os materiais para web e redes sociais...",
+  "Planejando layouts para redes sociais...",
+  "Desenhando banners chamativos para anúncios...",
+  "Explorando efeitos visuais e estilos...",
+  "Renderizando vídeos promocionais (isso pode levar um minuto)...",
+  "Otimizando os materiais para todas as plataformas...",
   "Aplicando os toques finais...",
 ];
 
@@ -57,7 +60,7 @@ const Loader: React.FC<LoaderProps> = ({ originalImage }) => {
           100% { width: 100%; }
         }
         .animate-loader-progress {
-          animation: loader-progress 20s linear infinite;
+          animation: loader-progress 45s linear infinite;
         }
         @keyframes spin-slow {
           from { transform: rotate(0deg); }
