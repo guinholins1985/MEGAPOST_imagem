@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, ChangeEvent } from 'react';
 import { UploadIcon, LinkIcon } from './icons';
 
@@ -16,13 +15,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onGenerate, disabled }) =
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(selectedFile.type)) {
-        setError('Invalid file type. Please upload a JPG, PNG, or WEBP file.');
+        setError('Tipo de arquivo inválido. Por favor, envie um arquivo JPG, PNG ou WEBP.');
         setFile(null);
         setPreview(null);
         return;
       }
       if (selectedFile.size > 5 * 1024 * 1024) { // 5MB limit
-        setError('File is too large. Please upload an image smaller than 5MB.');
+        setError('Arquivo muito grande. Por favor, envie uma imagem menor que 5MB.');
         setFile(null);
         setPreview(null);
         return;
@@ -44,45 +43,53 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onGenerate, disabled }) =
   }, [file, preview, onGenerate]);
 
   return (
-    <div className="max-w-3xl mx-auto bg-gray-800/50 border border-gray-700 rounded-xl p-8 shadow-2xl">
-      <div className="flex space-x-4 mb-6 border-b border-gray-700">
-        <button className="flex items-center space-x-2 py-3 px-4 text-white border-b-2 border-indigo-500 font-semibold">
-          <UploadIcon className="w-5 h-5" />
-          <span>Upload Image</span>
-        </button>
-        <button className="flex items-center space-x-2 py-3 px-4 text-gray-500 cursor-not-allowed" title="Link import is not yet available">
-          <LinkIcon className="w-5 h-5" />
-          <span>Import from Link</span>
-        </button>
-      </div>
-
+    <div className="w-full max-w-3xl mx-auto bg-white/60 border border-gray-200/80 rounded-xl p-8 shadow-2xl backdrop-blur-lg">
       <div
-        className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center bg-gray-900/50 cursor-pointer hover:border-indigo-500 transition-colors"
+        className="border-2 border-dashed border-gray-400 rounded-lg p-8 text-center bg-slate-50/50 cursor-pointer hover:border-indigo-500 hover:bg-slate-50 transition-colors"
         onClick={() => document.getElementById('file-upload')?.click()}
       >
         <input id="file-upload" type="file" className="hidden" onChange={handleFileChange} accept="image/png, image/jpeg, image/webp" />
         {preview ? (
-          <img src={preview} alt="Product Preview" className="max-h-48 mx-auto rounded-md object-contain" />
+          <img src={preview} alt="Pré-visualização do produto" className="max-h-48 mx-auto rounded-md object-contain" />
         ) : (
-          <div className="flex flex-col items-center text-gray-400">
-            <UploadIcon className="w-12 h-12 mb-4 text-gray-500" />
-            <p className="font-semibold text-gray-300">
-              <span className="text-indigo-400">Click to upload</span> or drag and drop
+          <div className="flex flex-col items-center text-slate-500">
+            <UploadIcon className="w-12 h-12 mb-4 text-gray-400" />
+            <p className="font-semibold text-slate-700">
+              <span className="text-indigo-600">Clique para enviar</span> ou arraste e solte
             </p>
-            <p className="text-sm">PNG, JPG, or WEBP (max. 5MB)</p>
+            <p className="text-sm">PNG, JPG, ou WEBP (máx. 5MB)</p>
           </div>
         )}
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-400 text-center">{error}</p>}
+      {error && <p className="mt-4 text-sm text-red-500 text-center">{error}</p>}
+
+      <div className="relative my-6 flex items-center justify-center">
+          <span className="absolute w-full h-px bg-gray-300"></span>
+          <span className="relative px-4 bg-white/0 text-sm font-medium text-slate-500 backdrop-blur-sm">OU</span>
+      </div>
+      
+      <div>
+          <label htmlFor="url-input" className="sr-only">Importar de um link</label>
+          <div className="flex items-center space-x-2">
+              <LinkIcon className="w-5 h-5 text-slate-400"/>
+              <input 
+                  id="url-input"
+                  type="text"
+                  placeholder="Cole a URL do produto para importar (em breve)"
+                  disabled
+                  className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:bg-slate-100 disabled:cursor-not-allowed"
+              />
+          </div>
+      </div>
 
       <div className="mt-8 text-center">
         <button
           onClick={handleSubmit}
           disabled={!file || disabled || !!error}
-          className="w-full sm:w-auto px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
+          className="w-full sm:w-auto px-10 py-4 bg-indigo-600 text-white font-bold rounded-lg shadow-lg transition-all transform hover:bg-indigo-700 hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed disabled:scale-100 disabled:shadow-none"
         >
-          {disabled ? 'Generating...' : 'Generate Marketing Assets'}
+          {disabled ? 'Gerando...' : 'Gerar Materiais de Marketing'}
         </button>
       </div>
     </div>

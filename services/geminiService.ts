@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { GeneratedAsset, AssetCategory } from '../types';
 
@@ -8,7 +7,7 @@ const toDataUrl = (base64: string, mimeType: string) => `data:${mimeType};base64
 
 const generateVideoAsset = async (productDescription: string): Promise<GeneratedAsset> => {
   const ai = getAi();
-  const prompt = `A short, 5-second, looping promotional video ad for ${productDescription}. Dynamic, engaging, and eye-catching, perfect for social media. 4K quality.`;
+  const prompt = `Um vídeo promocional curto, de 5 segundos, em loop, para ${productDescription}. Dinâmico, envolvente e chamativo, perfeito para redes sociais. Qualidade 4K.`;
   
   let operation = await ai.models.generateVideos({
     model: 'veo-3.1-fast-generate-preview',
@@ -16,7 +15,8 @@ const generateVideoAsset = async (productDescription: string): Promise<Generated
     config: {
       numberOfVideos: 1,
       resolution: '720p',
-      aspectRatio: '1:1',
+      // FIX: Changed aspectRatio to a supported value for video generation. '1:1' is not supported.
+      aspectRatio: '9:16',
     },
   });
 
@@ -27,12 +27,12 @@ const generateVideoAsset = async (productDescription: string): Promise<Generated
 
   const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
   if (!videoUri) {
-    throw new Error("Video generation failed to return a valid URI.");
+    throw new Error("A geração de vídeo falhou em retornar uma URI válida.");
   }
 
   const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
   if (!videoResponse.ok) {
-    throw new Error(`Failed to fetch video file: ${videoResponse.statusText}`);
+    throw new Error(`Falha ao buscar o arquivo de vídeo: ${videoResponse.statusText}`);
   }
   const videoBlob = await videoResponse.blob();
   const videoUrl = URL.createObjectURL(videoBlob);
@@ -51,25 +51,25 @@ const generateImageAsset = async (productDescription: string, category: AssetCat
 
   switch (category) {
     case AssetCategory.PRODUCT_PHOTO:
-      prompt = `Professional 4K product photography of ${productDescription}, studio lighting, on a pure white background. Hyper-realistic.`;
+      prompt = `Fotografia de produto profissional 4K de ${productDescription}, iluminação de estúdio, em um fundo branco puro. Hiper-realista.`;
       break;
     case AssetCategory.LIFESTYLE_MOCKUP:
-      prompt = `A realistic lifestyle photograph of a person happily using ${productDescription} in a bright, modern home setting. The focus is on the product.`;
+      prompt = `Uma fotografia de estilo de vida realista de uma pessoa usando feliz ${productDescription} em um ambiente doméstico claro e moderno. O foco está no produto.`;
       break;
     case AssetCategory.PROMOTIONAL_BANNER:
-      prompt = `A vibrant, eye-catching promotional banner for ${productDescription}. Include the text "20% OFF". Modern design aesthetic for an e-commerce website.`;
+      prompt = `Um banner promocional vibrante e chamativo para ${productDescription}. Inclua o texto "20% OFF". Estética de design moderno para um site de e-commerce.`;
       break;
     case AssetCategory.INSTAGRAM_POST:
-      prompt = `An aesthetic Instagram post template featuring ${productDescription}. Minimalist, clean design with space for text. Suitable for a high-end brand.`;
+      prompt = `Um modelo de post estético para Instagram apresentando ${productDescription}. Design minimalista e limpo com espaço para texto. Adequado para uma marca de luxo.`;
       break;
     case AssetCategory.YOUTUBE_THUMBNAIL:
-      prompt = `A compelling YouTube thumbnail about ${productDescription}. Bold text "NEW RELEASE!" and high-contrast colors to maximize clicks.`;
+      prompt = `Uma thumbnail de YouTube atraente sobre ${productDescription}. Texto em negrito "NOVO LANÇAMENTO!" e cores de alto contraste para maximizar cliques.`;
       break;
     case AssetCategory.SHADOW_EFFECT:
-      prompt = `A dramatic studio shot of ${productDescription} with a long, soft 3D shadow on a solid-colored background. Minimalist and artistic.`;
+      prompt = `Uma foto de estúdio dramática de ${productDescription} com uma sombra 3D longa e suave sobre um fundo de cor sólida. Minimalista e artístico.`;
       break;
     default:
-      throw new Error("Unsupported image category");
+      throw new Error("Categoria de imagem não suportada");
   }
 
   const response = await ai.models.generateImages({
@@ -80,7 +80,7 @@ const generateImageAsset = async (productDescription: string, category: AssetCat
 
   const generatedImage = response.generatedImages[0];
   if (!generatedImage || !generatedImage.image.imageBytes) {
-      throw new Error(`Image generation failed for category: ${category}`);
+      throw new Error(`A geração de imagem falhou para a categoria: ${category}`);
   }
 
   return {
@@ -98,7 +98,7 @@ export const generateMarketingAssets = async (base64Image: string, mimeType: str
     model: 'gemini-2.5-flash',
     contents: {
       parts: [
-        { text: "Analyze this product image and describe the product in a short, descriptive phrase suitable for an image generation prompt. For example: 'A stylish red and black gaming headset'." },
+        { text: "Analise esta imagem de produto e descreva o produto em uma frase curta e descritiva, adequada para um prompt de geração de imagem. Por exemplo: 'Um elegante fone de ouvido gamer vermelho e preto'." },
         { inlineData: { mimeType, data: base64Image } }
       ]
     }

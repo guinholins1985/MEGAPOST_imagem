@@ -1,16 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
-import { LogoIcon } from './icons';
+import { SparklesIcon } from './icons';
 
 const LOADING_MESSAGES = [
-  "Analyzing product features...",
-  "Generating creative concepts...",
-  "Crafting high-resolution product photos...",
-  "Building realistic lifestyle mockups...",
-  "Designing eye-catching banners...",
-  "Rendering promotional video (this can take a minute)...",
-  "Optimizing assets for web and social media...",
-  "Applying final touches...",
+  "Analisando as características do produto...",
+  "Gerando conceitos criativos...",
+  "Criando fotos de produtos em alta resolução...",
+  "Construindo mockups de estilo de vida realistas...",
+  "Desenhando banners chamativos...",
+  "Renderizando vídeo promocional (isso pode levar um minuto)...",
+  "Otimizando os materiais para web e redes sociais...",
+  "Aplicando os toques finais...",
 ];
 
 interface LoaderProps {
@@ -29,25 +28,25 @@ const Loader: React.FC<LoaderProps> = ({ originalImage }) => {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto flex flex-col items-center text-center p-8 bg-gray-800/50 border border-gray-700 rounded-xl shadow-2xl">
+    <div className="max-w-3xl mx-auto flex flex-col items-center text-center p-8 bg-white/60 border border-gray-200/80 rounded-xl shadow-2xl backdrop-blur-lg">
       <div className="relative mb-6">
         {originalImage && (
-          <img src={originalImage} alt="Product being analyzed" className="w-48 h-48 rounded-lg object-cover shadow-lg" />
+          <img src={originalImage} alt="Produto sendo analisado" className="w-48 h-48 rounded-lg object-cover shadow-lg" />
         )}
         <div className="absolute -inset-2 rounded-lg border-2 border-dashed border-indigo-500/50 animate-spin-slow"></div>
-        <div className="absolute inset-0 bg-gray-900/60 rounded-lg flex items-center justify-center">
-            <LogoIcon className="w-16 h-16 text-indigo-400 animate-pulse"/>
+        <div className="absolute inset-0 bg-white/60 rounded-lg flex items-center justify-center">
+            <SparklesIcon className="w-16 h-16 text-indigo-500 animate-pulse"/>
         </div>
       </div>
-      <h2 className="text-2xl font-bold text-white mb-2">AI Generation in Progress</h2>
-      <p className="text-gray-400 mb-6">Your marketing assets are being created. Please wait...</p>
+      <h2 className="text-2xl font-bold text-slate-800 mb-2">Geração com IA em Progresso</h2>
+      <p className="text-slate-500 mb-6">Seus materiais de marketing estão sendo criados. Por favor, aguarde...</p>
       
-      <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4 overflow-hidden">
-        <div className="bg-indigo-500 h-2.5 rounded-full animate-loader-progress"></div>
+      <div className="w-full bg-slate-200 rounded-full h-2.5 mb-4 overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2.5 rounded-full animate-loader-progress"></div>
       </div>
 
       <div className="h-6 mt-2">
-          <p className="text-indigo-300 transition-opacity duration-500">
+          <p className="text-indigo-600 transition-opacity duration-500">
             {LOADING_MESSAGES[currentMessageIndex]}
           </p>
       </div>

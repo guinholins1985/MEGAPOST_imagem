@@ -1,11 +1,33 @@
-
 import React, { useState, useCallback } from 'react';
 import { GeneratedAsset } from './types';
 import { generateMarketingAssets } from './services/geminiService';
 import ImageUploader from './components/ImageUploader';
 import ImageGrid from './components/ImageGrid';
 import Loader from './components/Loader';
-import { LogoIcon } from './components/icons';
+import { SparklesIcon } from './components/icons';
+
+// Add aistudio to window interface for Veo API key selection
+// FIX: The original inline type for `aistudio` caused a declaration conflict. Defining a named `AIStudio` interface and using it resolves the issue.
+interface AIStudio {
+  hasSelectedApiKey: () => Promise<boolean>;
+  openSelectKey: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    aistudio?: AIStudio;
+  }
+}
+
+const Logo: React.FC = () => (
+    <div className="flex items-center space-x-3">
+        <SparklesIcon className="w-8 h-8 text-indigo-500" />
+        <span className="text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">
+            MEGAPOST
+        </span>
+    </div>
+);
+
 
 const App: React.FC = () => {
   const [originalImage, setOriginalImage] = useState<{ data: string; mimeType: string } | null>(null);
@@ -14,93 +36,104 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = useCallback(async (image: { data: string; mimeType: string }) => {
+     if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        if (typeof window.aistudio.openSelectKey === 'function') {
+          await window.aistudio.openSelectKey();
+        } else {
+          setError("Função para selecionar chave de API não encontrada.");
+          return;
+        }
+      }
+    }
+
     setIsLoading(true);
     setError(null);
     setGeneratedAssets([]);
     setOriginalImage(image);
 
     try {
-      if (!process.env.API_KEY) {
-        throw new Error("API key is not configured. Please set the API_KEY environment variable.");
-      }
+      // FIX: Removed explicit API_KEY check to align with guidelines, which state the key is assumed to be configured externally.
       const assets = await generateMarketingAssets(image.data, image.mimeType);
       setGeneratedAssets(assets);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "An unknown error occurred during generation.");
+      const errorMessage = err instanceof Error ? err.message : "Ocorreu um erro desconhecido durante a geração.";
+       if (errorMessage.includes("Requested entity was not found.")) {
+        setError("Sua chave de API pode ser inválida. Por favor, selecione uma chave de API válida. [Saiba mais sobre cobrança](https://ai.google.dev/gemini-api/docs/billing)");
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
-      <header className="py-6 px-4 sm:px-6 lg:px-8 border-b border-gray-700">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <LogoIcon className="h-10 w-10 text-indigo-400" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">AI Marketing Asset Generator</h1>
-          </div>
-          <a href="https://ai.google.dev" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
-            Powered by Gemini
-          </a>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      <header className="sticky top-0 z-50 py-4 border-b border-slate-200/80 bg-white/60 backdrop-blur-lg">
+        <div className="container mx-auto flex items-center justify-center px-4">
+          <Logo />
         </div>
       </header>
 
-      <main className="py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">
-              Transform Your Product Image into a Marketing Powerhouse
-            </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
-              Upload a single product image to automatically generate a complete set of professional, ready-to-use marketing assets in seconds.
+      <main className="py-10 sm:py-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 animate-fadeIn" style={{ animationDelay: '0.2s' }}>
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-500">
+              Transforme uma Imagem em Posts Incríveis
+            </h1>
+            <p className="mt-4 max-w-2xl mx-auto text-lg text-slate-600">
+              Envie uma única imagem de produto para gerar automaticamente um conjunto completo de materiais de marketing profissionais e prontos para uso em segundos.
             </p>
           </div>
 
-          {!isLoading && generatedAssets.length === 0 && (
-            <ImageUploader onGenerate={handleGenerate} disabled={isLoading} />
-          )}
+          <div className="animate-slideUp" style={{ animationDelay: '0.4s' }}>
+            {!isLoading && generatedAssets.length === 0 && (
+              <ImageUploader onGenerate={handleGenerate} disabled={isLoading} />
+            )}
 
-          {error && (
-            <div className="max-w-3xl mx-auto mt-8 p-4 bg-red-900/50 border border-red-700 rounded-lg text-center">
-              <h3 className="text-lg font-semibold text-red-300">Generation Failed</h3>
-              <p className="mt-2 text-red-400">{error}</p>
-              <button
-                onClick={() => {
-                  setError(null);
-                  setOriginalImage(null);
-                }}
-                className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md font-semibold transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {isLoading && (
-            <Loader originalImage={originalImage?.data ? `data:${originalImage.mimeType};base64,${originalImage.data}` : undefined} />
-          )}
-          
-          {!isLoading && generatedAssets.length > 0 && (
-             <div className="flex flex-col items-center">
-                <ImageGrid assets={generatedAssets} />
+            {error && (
+              <div className="max-w-3xl mx-auto mt-8 p-4 bg-red-100 border border-red-300 rounded-lg text-center">
+                <h3 className="text-lg font-semibold text-red-800">Falha na Geração</h3>
+                <p className="mt-2 text-red-600">{error}</p>
                 <button
-                    onClick={() => {
-                      setGeneratedAssets([]);
-                      setOriginalImage(null);
-                    }}
-                    className="mt-10 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                  onClick={() => {
+                    setError(null);
+                    setOriginalImage(null);
+                  }}
+                  className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-semibold transition-colors"
                 >
-                    Generate New Assets
+                  Tentar Novamente
                 </button>
-            </div>
-          )}
+              </div>
+            )}
+
+            {isLoading && (
+              <Loader originalImage={originalImage?.data ? `data:${originalImage.mimeType};base64,${originalImage.data}` : undefined} />
+            )}
+            
+            {!isLoading && generatedAssets.length > 0 && (
+              <div className="flex flex-col items-center">
+                  <ImageGrid assets={generatedAssets} />
+                  <button
+                      onClick={() => {
+                        setGeneratedAssets([]);
+                        setOriginalImage(null);
+                      }}
+                      className="mt-10 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg transition-transform transform hover:scale-105"
+                  >
+                      Gerar Novos Materiais
+                  </button>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
-      <footer className="text-center py-6 mt-12 border-t border-gray-700">
-          <p className="text-sm text-gray-500">&copy; {new Date().getFullYear()} AI Asset Generator. All rights reserved.</p>
+      <footer className="text-center py-6 mt-12 border-t border-slate-200">
+          <p className="text-sm text-slate-500">&copy; {new Date().getFullYear()} MEGAPOST. Todos os direitos reservados.</p>
       </footer>
     </div>
   );

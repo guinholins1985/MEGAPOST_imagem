@@ -1,5 +1,5 @@
 {
-  "name": "AI Marketing Asset Generator",
-  "description": "An AI-powered SaaS that analyzes a product image and automatically generates a suite of optimized marketing assets, including 4K product photos, lifestyle mockups, social media templates, and promotional videos.",
+  "name": "MEGAPOST",
+  "description": "Uma SaaS com IA que analisa a imagem de um produto e gera automaticamente um conjunto de materiais de marketing otimizados, incluindo fotos de produtos 4K, mockups de estilo de vida, templates de redes sociais e vídeos promocionais.",
   "requestFramePermissions": []
 }

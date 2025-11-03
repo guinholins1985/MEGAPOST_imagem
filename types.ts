@@ -1,12 +1,11 @@
-
 export enum AssetCategory {
-  PRODUCT_PHOTO = 'Product Photo (White Background)',
-  LIFESTYLE_MOCKUP = 'Lifestyle Mockup (with Model)',
-  PROMOTIONAL_BANNER = 'Promotional Banner',
-  INSTAGRAM_POST = 'Instagram Post',
-  YOUTUBE_THUMBNAIL = 'YouTube Thumbnail',
-  SHADOW_EFFECT = '3D Shadow Effect',
-  PROMOTIONAL_VIDEO = 'Promotional Video',
+  PRODUCT_PHOTO = 'Foto do Produto (Fundo Branco)',
+  LIFESTYLE_MOCKUP = 'Mockup de Estilo de Vida (com Modelo)',
+  PROMOTIONAL_BANNER = 'Banner Promocional',
+  INSTAGRAM_POST = 'Post para Instagram',
+  YOUTUBE_THUMBNAIL = 'Thumbnail para YouTube',
+  SHADOW_EFFECT = 'Efeito de Sombra 3D',
+  PROMOTIONAL_VIDEO = 'Vídeo Promocional',
 }
 
 export interface GeneratedAsset {

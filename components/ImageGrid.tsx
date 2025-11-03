@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { GeneratedAsset } from '../types';
 import { DownloadIcon } from './icons';
@@ -18,21 +17,21 @@ const AssetCard: React.FC<{ asset: GeneratedAsset }> = ({ asset }) => {
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-lg bg-gray-800 shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-indigo-500/30">
+    <div className="group relative overflow-hidden rounded-lg bg-white shadow-xl transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
       {asset.type === 'image' ? (
         <img src={asset.url} alt={asset.title} className="w-full h-full object-cover aspect-square" />
       ) : (
         <video src={asset.url} autoPlay loop muted playsInline className="w-full h-full object-cover aspect-square" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <div className="p-4 absolute bottom-0 left-0 right-0">
-          <h3 className="font-bold text-white text-lg">{asset.title}</h3>
-          <p className="text-sm text-gray-300 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity delay-100">{asset.prompt}</p>
+          <h3 className="font-bold text-slate-800 text-lg">{asset.title}</h3>
+          <p className="text-sm text-slate-600 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity delay-100">{asset.prompt}</p>
         </div>
         <button
           onClick={handleDownload}
-          className="absolute top-3 right-3 p-2 bg-black/50 rounded-full text-white hover:bg-indigo-600 transition-all scale-0 group-hover:scale-100 delay-150"
-          title="Download Asset"
+          className="absolute top-3 right-3 p-2 bg-white/70 rounded-full text-slate-700 hover:bg-indigo-500 hover:text-white transition-all scale-0 group-hover:scale-100 delay-150"
+          title="Baixar material"
         >
           <DownloadIcon className="w-5 h-5" />
         </button>
